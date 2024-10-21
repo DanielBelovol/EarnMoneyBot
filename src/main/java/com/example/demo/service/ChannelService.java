@@ -1,7 +1,11 @@
 package com.example.demo.service;
 
 import com.example.demo.data.Channel;
+import com.example.demo.data.ChannelSubscriber;
+import com.example.demo.data.User;
 import com.example.demo.repositories.ChannelRepository;
+import com.example.demo.repositories.ChannelSubscribersRepository;
+import com.example.demo.repositories.UserRepository;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,7 +24,8 @@ import java.util.List;
 public class ChannelService {
     private final ChannelRepository channelRepository;
     private final TelegramLongPollingBot telegramBot; // добавляем бота
-    private final UserService userService;
+    private final UserRepository userRepository;
+    private final ChannelSubscribersRepository channelSubscribersRepository;
 
     public List<Channel> getAllChannel() {
         return channelRepository.findAll();
@@ -44,42 +49,38 @@ public class ChannelService {
         }
     }
 
-    public boolean isSubscribed(long userId, long channelId) {
-        try {
-            // Создаем запрос для получения информации о пользователе в контексте канала
-            GetChatMember getChatMember = new GetChatMember();
-            getChatMember.setChatId(channelId); // Устанавливаем ID канала
-            getChatMember.setUserId(userId);    // Устанавливаем ID пользователя
-
-            // Отправляем запрос
-            ChatMember chatMember = telegramBot.execute(getChatMember);
-
-            // Проверяем статус пользователя
-            String status = chatMember.getStatus();
-            if (status.equals("member") || status.equals("administrator") || status.equals("creator")) {
-                Channel channel = getById(channelId);
-                channel.setSubscribed(channel.getSubscribed()+1);
-            }
-            return status.equals("member") || status.equals("administrator") || status.equals("creator");
-
-        } catch (TelegramApiException e) {
-            e.printStackTrace();
-            return false; // Если возникла ошибка, возвращаем false
-        }
+    public List<User> getChannelSubscribers(long channelId) {
+        return userRepository.findUsersByChannelId(channelId);
     }
 
-    public void addChannel(String link, String name, String amdinName) {
+
+    public boolean subscribeUserToChannel(long userId, long channelId) {
+        Channel channel = channelRepository.findById(channelId).orElseThrow(() -> new RuntimeException("Channel not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Проверяем, не подписан ли уже пользователь
+        if (!channelSubscribersRepository.existsByChannelIdAndUserId(channelId, userId)) {
+            ChannelSubscriber subscriber = new ChannelSubscriber();
+            subscriber.setChannelId(channelId);
+            subscriber.setUserId(userId);
+            channelSubscribersRepository.save(subscriber);
+            return true; // Подписка успешна
+        }
+        return false; // Уже подписан
+    }
+
+    public void addChannel(String link, String name, String adminName) {
         Channel channel = new Channel();
         channel.setLink(link);
         channel.setName(name);
-        channel.setSubscribed(0);
-        if (amdinName.equals("-")) {
+        if (adminName.equals("-")) {
             channel.setAdminName("No information about admin");
         } else {
-            channel.setAdminName(amdinName);
+            channel.setAdminName(adminName);
         }
         channelRepository.save(channel);
     }
+
 
     public void removeChannel(String link) {
         channelRepository.deleteByLink(link);
@@ -97,5 +98,23 @@ public class ChannelService {
         return channelRepository.getReferenceById(id);
     }
 
-    public
+    public String getChannelStatistics(long channelId) {
+        Channel channel = getById(channelId);
+        if (channel != null) {
+            List<User> subscribers = getChannelSubscribers(channelId); // Получаем всех подписчиков
+            int subscribedCount = subscribers.size();
+
+            StringBuilder statistics = new StringBuilder();
+            statistics.append("Подписчиков: ").append(subscribedCount).append("\n");
+            statistics.append("Список подписчиков: ").append("\n");
+
+            for (User user : subscribers) {
+                statistics.append("- ").append(user.getUserName()).append("\n");
+            }
+
+            return statistics.toString();
+        } else {
+            throw new RuntimeException("Channel not found for ID: " + channelId);
+        }
+    }
 }

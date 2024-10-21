@@ -41,12 +41,14 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final UserService userService;
     private final ChannelService channelService;
     private final UserTaskState userTaskState;
+    private final AdminService adminService;
 
-    public TelegramBot(BotConfig botConfig, UserService userService, ChannelService channelService) {
+    public TelegramBot(BotConfig botConfig, UserService userService, ChannelService channelService, AdminService adminService) {
         this.botConfig = botConfig;
         this.userService = userService;
         this.channelService = channelService;
         this.userTaskState = new UserTaskState(channelService);
+        this.adminService = adminService;
         setBotCommands();
     }
 
@@ -67,9 +69,33 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             switch (messageText) {
                 case "/admin_panel":
-                    if(userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)){
-                        send
+                    if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
+                        adminService.sendAminPanel(chatId, "Это ваша панель.");
+                    } else {
+                        sendBotKeyboardWithText(chatId, "У вас нет доступа к панели администратора.");
                     }
+                    break;
+                case "/all_channels":
+                    channelService.getAllChannel(chatId);
+                    break;
+                case "/add_channel":
+                    channelService.addChannel(chatId);
+                    break;
+                case "/remove_channel":
+                    channelService.removeChannel(chatId);
+                    break;
+                case "/update_channel":
+                    channelService.updateChannel(chatId);
+                    break;
+                case "/stats_channel":
+                    channelService.statsChannel(chatId);
+                    break;
+                case "/all_users":
+                    viewAllUsers(chatId);
+                    break;
+                case "/user_stats":
+                    userStats(chatId);
+                    break;
                 case "/help":
                     sendBotKeyboardWithText(chatId, HELP_TEXT);
                     break;
@@ -101,7 +127,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     break;
                 case "check":
                     Channel current = channelService.getAllChannel().get(userTaskState.getCurrentTaskIndex(chatId));
-                    if (channelService.isSubscribed(userId, channelService.getChannelIdByUsername(current.getName()))) {
+                    if (channelService.subscribeUserToChannel(userId, channelService.getChannelIdByUsername(current.getName()))) {
                         sendBotKeyboardWithText(chatId, "Задание выполено, на ваш баланс зачислено 5руб");
                         userService.earn(userId);
                     } else {
@@ -132,15 +158,10 @@ public class TelegramBot extends TelegramLongPollingBot {
         List<Channel> channels = channelService.getAllChannel();
         int currentIndex = userTaskState.getCurrentTaskIndex(chatId);
 
+        // Проверка на наличие доступных заданий
         if (channels.isEmpty() || currentIndex >= channels.size()) {
-            SendMessage message = new SendMessage();
-            message.setChatId(chatId);
-            message.setText("Нет доступных заданий или вы просмотрели все задания.");
-            try {
-                execute(message);
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
-            }
+            sendBotKeyboardWithText(chatId, "Нет доступных заданий.");
+            userTaskState.setCurrentTaskIndex(chatId, 0); // Сбросить индекс в начало
             return;
         }
 
@@ -193,7 +214,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         KeyboardRow row1 = new KeyboardRow();
         KeyboardRow row2 = new KeyboardRow();
-        row1.add(new KeyboardButton("/viewTasks"));
+        row1.add(new KeyboardButton("/view_tasks"));
         row1.add(new KeyboardButton("/balance"));
         row2.add(new KeyboardButton("/instruction"));
 
