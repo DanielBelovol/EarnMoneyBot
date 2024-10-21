@@ -1,10 +1,12 @@
 package com.example.demo.service;
 
 import com.example.demo.config.BotConfig;
+import com.example.demo.data.AdminState;
 import com.example.demo.data.Channel;
 import com.example.demo.data.UserRole;
 import com.example.demo.data.UserTaskState;
 
+import com.example.demo.repositories.ChannelRepository;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
@@ -20,6 +22,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 @Service
@@ -42,15 +45,18 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final ChannelService channelService;
     private final UserTaskState userTaskState;
     private final AdminService adminService;
+    private final ChannelRepository channelRepository;
 
-    public TelegramBot(BotConfig botConfig, UserService userService, ChannelService channelService, AdminService adminService) {
+    public TelegramBot(BotConfig botConfig, UserService userService, ChannelService channelService, AdminService adminService, ChannelRepository channelRepository) {
         this.botConfig = botConfig;
         this.userService = userService;
         this.channelService = channelService;
         this.userTaskState = new UserTaskState(channelService);
         this.adminService = adminService;
+        this.channelRepository = channelRepository;
         setBotCommands();
     }
+    HashMap<Long, AdminState> adminStateHashMap = new HashMap<>();
 
     @Override
     public void onUpdateReceived(Update update) {
@@ -71,27 +77,133 @@ public class TelegramBot extends TelegramLongPollingBot {
                 case "/admin_panel":
                     if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
                         adminService.sendAminPanel(chatId, "Это ваша панель.");
+                        adminStateHashMap.put(userId,AdminState.NONE);
                     } else {
                         sendBotKeyboardWithText(chatId, "У вас нет доступа к панели администратора.");
                     }
                     break;
                 case "/all_channels":
-                    channelService.getAllChannel(chatId);
+                    if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
+                        channelService.getAllChannel();
+                    }else {
+                        sendBotKeyboardWithText(chatId,"У вас нет доступа");
+                    }
                     break;
                 case "/add_channel":
-                    channelService.addChannel(chatId);
+                    String channelLink = null;
+                    String channelName = null;
+                    String adminName = null;
+                    // Проверяем, является ли пользователь администратором
+                    if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
+                        // Если текущее состояние - LINK_WRITE
+                        if (adminStateHashMap.get(userId) == AdminState.LINK_WRITE) {
+                            // Сохраняем ссылку на канал
+                            channelLink = messageText;
+                            // Здесь вы можете добавить проверку на корректность ссылки
+
+                            // Переходим к следующему состоянию
+                            adminStateHashMap.put(userId, AdminState.NAME_WRITE);
+                            sendBotKeyboardWithText(chatId, "Пожалуйста, введите имя канала:");
+                        }
+                        // Если текущее состояние - NAME_WRITE
+                        else if (adminStateHashMap.get(userId) == AdminState.NAME_WRITE) {
+                            // Сохраняем имя канала
+                             channelName = messageText;
+
+                            // Переходим к следующему состоянию
+                            adminStateHashMap.put(userId, AdminState.ADMIN_WRITE);
+                            sendBotKeyboardWithText(chatId, "Пожалуйста, введите имя администратора канала:");
+                        }
+                        // Если текущее состояние - ADMIN_WRITE
+                        else if (adminStateHashMap.get(userId) == AdminState.ADMIN_WRITE) {
+                            // Сохраняем имя администратора
+                             adminName = messageText;
+
+                            // Создаем канал с собранными данными
+                            channelService.addChannel(channelLink, channelName, adminName);
+                            sendBotKeyboardWithText(chatId, "Канал успешно добавлен!");
+
+                            // Сбрасываем состояние
+                            adminStateHashMap.put(userId, AdminState.NONE);
+                        }
+                        // Если состояние NONE, запрашиваем ссылку
+                        else if (adminStateHashMap.get(userId) == AdminState.NONE) {
+                            adminStateHashMap.put(userId, AdminState.LINK_WRITE);
+                            sendBotKeyboardWithText(chatId, "Пожалуйста, введите ссылку на канал:");
+                        }
+                    } else {
+                        sendBotKeyboardWithText(chatId, "У вас нет прав для выполнения этой команды.");
+                    }
                     break;
+
+
                 case "/remove_channel":
-                    channelService.removeChannel(chatId);
+                    String link = messageText; // Предполагается, что link - это ввод пользователя
+                    if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
+                        // Проверяем, существует ли канал с данной ссылкой
+                        if (!channelRepository.existsByLink(link)) {
+                            adminService.sendAminPanel(chatId, "Канал за такой ссылкой не найден.");
+                        } else {
+                            // Удаляем канал и подтверждаем удаление
+                            channelService.removeChannel(link);
+                            adminService.sendAminPanel(chatId, "Канал успешно удален.");
+                        }
+                    } else {
+                        sendBotKeyboardWithText(chatId, "У вас нет доступа.");
+                    }
                     break;
+
                 case "/update_channel":
-                    channelService.updateChannel(chatId);
+                    String linkUpdate = null;
+                    String nameUpdate = null;
+                    String adminUpdate = null;
+
+                    if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
+                        // Проверяем текущее состояние администратора
+                        if (adminStateHashMap.get(userId) == AdminState.NONE) {
+                            linkUpdate = messageText;
+                            if (channelRepository.existsByLink(linkUpdate)) {
+                                adminStateHashMap.put(userId, AdminState.NAME_WRITE);
+                                sendBotKeyboardWithText(chatId, "Пожалуйста, введите новое имя канала:");
+                            } else {
+                                adminService.sendAminPanel(chatId, "Канал с такой ссылкой не найден.");
+                            }
+
+                        } else if (adminStateHashMap.get(userId) == AdminState.NAME_WRITE) {
+                            nameUpdate = messageText; // Получаем новое имя канала
+                            adminStateHashMap.put(userId, AdminState.ADMIN_WRITE);
+                            sendBotKeyboardWithText(chatId, "Пожалуйста, введите имя администратора:");
+
+                        } else if (adminStateHashMap.get(userId) == AdminState.ADMIN_WRITE) {
+                            adminUpdate = messageText; // Получаем имя администратора
+
+                            // Обновляем канал
+                            channelService.updateChannel(linkUpdate, nameUpdate, adminUpdate);
+                            adminStateHashMap.put(userId, AdminState.NONE); // Сбрасываем состояние
+                            sendBotKeyboardWithText(chatId, "Канал успешно обновлен.");
+                        }
+                    } else {
+                        sendBotKeyboardWithText(chatId, "У вас нет доступа.");
+                    }
                     break;
+
                 case "/stats_channel":
-                    channelService.statsChannel(chatId);
+                    // Check if the user has admin privileges
+                    if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
+                        // The channel name or link should be provided in the message text
+                        String channelNameOrLink = messageText.trim();
+
+                        // Fetch the channel statistics based on the channel name or link
+                        String statistics = channelService.getChannelStatistics(channelNameOrLink);
+
+                        // Send the statistics back to the admin
+                        adminService.sendAminPanel(chatId, statistics);
+                    } else {
+                        adminService.sendAminPanel(chatId, "У вас нет доступа.");
+                    }
                     break;
                 case "/all_users":
-                    viewAllUsers(chatId);
+                    userService.viewAllUsers(chatId);
                     break;
                 case "/user_stats":
                     userStats(chatId);

@@ -18,6 +18,8 @@ import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 
 import java.util.List;
 
+import static ch.qos.logback.core.joran.spi.ConsoleTarget.findByName;
+
 @Service
 @RequiredArgsConstructor
 @AllArgsConstructor
@@ -52,7 +54,6 @@ public class ChannelService {
     public List<User> getChannelSubscribers(long channelId) {
         return userRepository.findUsersByChannelId(channelId);
     }
-
 
     public boolean subscribeUserToChannel(long userId, long channelId) {
         Channel channel = channelRepository.findById(channelId).orElseThrow(() -> new RuntimeException("Channel not found"));
@@ -98,8 +99,9 @@ public class ChannelService {
         return channelRepository.getReferenceById(id);
     }
 
-    public String getChannelStatistics(long channelId) {
-        Channel channel = getById(channelId);
+    public String getChannelStatistics(String channelName) {
+        Channel channel = channelRepository.findByName(channelName);
+        long channelId = getChannelIdByUsername(channelName);
         if (channel != null) {
             List<User> subscribers = getChannelSubscribers(channelId); // Получаем всех подписчиков
             int subscribedCount = subscribers.size();
