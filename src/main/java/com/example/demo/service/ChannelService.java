@@ -22,7 +22,6 @@ import static ch.qos.logback.core.joran.spi.ConsoleTarget.findByName;
 
 @Service
 @RequiredArgsConstructor
-@AllArgsConstructor
 public class ChannelService {
     private final ChannelRepository channelRepository;
     private final TelegramLongPollingBot telegramBot; // добавляем бота

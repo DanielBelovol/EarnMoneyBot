@@ -2,9 +2,12 @@ package com.example.demo.data;
 
 import com.example.demo.service.ChannelService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.List;
+
+@Service
 @RequiredArgsConstructor
 public class UserTaskState {
     private final HashMap<Long, Integer> userTaskIndex = new HashMap<>();

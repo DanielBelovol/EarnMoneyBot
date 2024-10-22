@@ -56,6 +56,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         this.channelRepository = channelRepository;
         setBotCommands();
     }
+
     HashMap<Long, AdminState> adminStateHashMap = new HashMap<>();
 
     @Override
@@ -77,7 +78,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 case "/admin_panel":
                     if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
                         adminService.sendAminPanel(chatId, "Это ваша панель.");
-                        adminStateHashMap.put(userId,AdminState.NONE);
+                        adminStateHashMap.put(userId, AdminState.NONE);
                     } else {
                         sendBotKeyboardWithText(chatId, "У вас нет доступа к панели администратора.");
                     }
@@ -85,8 +86,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                 case "/all_channels":
                     if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
                         channelService.getAllChannel();
-                    }else {
-                        sendBotKeyboardWithText(chatId,"У вас нет доступа");
+                    } else {
+                        sendBotKeyboardWithText(chatId, "У вас нет доступа");
                     }
                     break;
                 case "/add_channel":
@@ -94,7 +95,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     String channelName = null;
                     String adminName = null;
                     // Проверяем, является ли пользователь администратором
-                    if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
+                    if (userService.isAdmin(userId)) {
                         // Если текущее состояние - LINK_WRITE
                         if (adminStateHashMap.get(userId) == AdminState.LINK_WRITE) {
                             // Сохраняем ссылку на канал
@@ -108,7 +109,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                         // Если текущее состояние - NAME_WRITE
                         else if (adminStateHashMap.get(userId) == AdminState.NAME_WRITE) {
                             // Сохраняем имя канала
-                             channelName = messageText;
+                            channelName = messageText;
 
                             // Переходим к следующему состоянию
                             adminStateHashMap.put(userId, AdminState.ADMIN_WRITE);
@@ -117,7 +118,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                         // Если текущее состояние - ADMIN_WRITE
                         else if (adminStateHashMap.get(userId) == AdminState.ADMIN_WRITE) {
                             // Сохраняем имя администратора
-                             adminName = messageText;
+                            adminName = messageText;
 
                             // Создаем канал с собранными данными
                             channelService.addChannel(channelLink, channelName, adminName);
@@ -139,7 +140,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                 case "/remove_channel":
                     String link = messageText; // Предполагается, что link - это ввод пользователя
-                    if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
+                    if (userService.isAdmin(userId)) {
                         // Проверяем, существует ли канал с данной ссылкой
                         if (!channelRepository.existsByLink(link)) {
                             adminService.sendAminPanel(chatId, "Канал за такой ссылкой не найден.");
@@ -158,7 +159,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     String nameUpdate = null;
                     String adminUpdate = null;
 
-                    if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
+                    if (userService.isAdmin(userId)) {
                         // Проверяем текущее состояние администратора
                         if (adminStateHashMap.get(userId) == AdminState.NONE) {
                             linkUpdate = messageText;
@@ -189,7 +190,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                 case "/stats_channel":
                     // Check if the user has admin privileges
-                    if (userService.getUserByUserId(userId).getUserRole().equals(UserRole.ADMIN_ROLE)) {
+                    if (userService.isAdmin(userId)) {
                         // The channel name or link should be provided in the message text
                         String channelNameOrLink = messageText.trim();
 
@@ -199,14 +200,22 @@ public class TelegramBot extends TelegramLongPollingBot {
                         // Send the statistics back to the admin
                         adminService.sendAminPanel(chatId, statistics);
                     } else {
-                        adminService.sendAminPanel(chatId, "У вас нет доступа.");
+                        sendBotKeyboardWithText(chatId, "У вас нет доступа.");
                     }
                     break;
                 case "/all_users":
-                    userService.viewAllUsers(chatId);
-                    break;
+                    if (userService.isAdmin(userId)) {
+                        userService.viewAllUsers();
+                    }else{
+                        sendBotKeyboardWithText(chatId, "У вас нет доступа.");
+                    }
                 case "/user_stats":
-                    userStats(chatId);
+                    if(userService.isAdmin(userId)){
+                        String str = userService.userStats(userId);
+                        adminService.sendAminPanel(chatId,str);
+                    } else {
+                        sendBotKeyboardWithText(chatId, "У вас нет доступа.");
+                    }
                     break;
                 case "/help":
                     sendBotKeyboardWithText(chatId, HELP_TEXT);
