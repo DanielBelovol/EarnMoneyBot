@@ -32,8 +32,12 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	implementation 'org.telegram:telegrambots:6.9.7.1'
-	implementation 'org.flywaydb:flyway-core:10.20.0'
-	implementation 'org.postgresql:postgresql:42.7.4'
+	// https://mvnrepository.com/artifact/org.flywaydb/flyway-gradle-plugin
+	runtimeOnly group: 'org.flywaydb', name: 'flyway-gradle-plugin', version: '10.20.0'
+
+	// https://mvnrepository.com/artifact/org.postgresql/postgresql
+	implementation group: 'org.postgresql', name: 'postgresql', version: '42.7.4'
+
 }
 
 hibernate {
