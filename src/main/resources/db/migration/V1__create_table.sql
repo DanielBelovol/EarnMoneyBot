@@ -1,5 +1,5 @@
 -- Таблица для хранения каналов
-CREATE TABLE channel (
+CREATE TABLE channels (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     link VARCHAR(255) NOT NULL UNIQUE,
@@ -7,8 +7,8 @@ CREATE TABLE channel (
 );
 
 -- Таблица для хранения пользователей
-CREATE TABLE "user" (
-    id VARCHAR(255) PRIMARY KEY,
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     money BIGINT DEFAULT 0,
     role VARCHAR(255) NOT NULL
@@ -16,7 +16,7 @@ CREATE TABLE "user" (
 
 -- Таблица для связи каналов и подписчиков (пользователей)
 CREATE TABLE channel_subscribers (
-    channel_id BIGINT REFERENCES channel(id) ON DELETE CASCADE,
-    user_id VARCHAR(255) REFERENCES "user"(id) ON DELETE CASCADE,
+    channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     PRIMARY KEY (channel_id, user_id)
 );

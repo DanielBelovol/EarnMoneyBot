@@ -1,25 +1,29 @@
 package com.example.demo.data;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
 @Data
 @Setter
 @AllArgsConstructor
+@Table(name = "users")
 public class User {
+    public User(){
+
+    }
     @Id
     @Column(name = "id")
-    private final long id;
+    private long id;
     @Column(name = "username")
-    private final String userName;
+    private String userName;
     @Column(name = "money")
     private long money;
 
     @Column(name = "role")
-    private final UserRole userRole;
+    @Enumerated(EnumType.STRING)
+    private UserRole userRole;
 }

@@ -75,6 +75,7 @@ public class UserService {
             sb.append("Name: " + user.getUserName() + ", ");
             sb.append("role:" + user.getUserRole().toString() + ", ");
             sb.append("money:" + user.getMoney() + "\n");
+            counter++;
         }
         return sb.toString();
     }

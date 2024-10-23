@@ -10,6 +10,7 @@ import java.util.List;
 @Entity
 @Data
 @NoArgsConstructor
+@Table(name = "channels")
 public class Channel {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

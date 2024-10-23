@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -15,12 +16,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class AdminService {
-    private final TelegramBot telegramBot;
-    public void sendAminPanel(long chatId, String text){
-        SendMessage sendMessage = new SendMessage();
-        sendMessage.setChatId(chatId);
-        sendMessage.setText(text);
-
+    public ReplyKeyboardMarkup sendAminPanel(){
         ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
         replyKeyboardMarkup.setSelective(true);
         replyKeyboardMarkup.setResizeKeyboard(true);
@@ -46,10 +42,6 @@ public class AdminService {
         keyboard.add(row4);
 
         replyKeyboardMarkup.setKeyboard(keyboard);
-        try {
-            telegramBot.execute(sendMessage);
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
+        return replyKeyboardMarkup;
     }
 }
